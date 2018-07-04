@@ -65,6 +65,7 @@ data:
     apiVersion: openebs.io/v1alpha1
     kind: CStorVolume
     id: cvolcreateputvolume
+    runNamespace: {{ .Volume.runNamespace }}
     action: put
   post: |
     {{- jsonpath .JsonResult "{.metadata.uid}" | trim | saveAs "cvolcreateputvolume.cstorid" .TaskResult | noop -}}
@@ -203,6 +204,7 @@ metadata:
 data:
   meta: |
     apiVersion: openebs.io/v1alpha1
+    runNameSpace: {{ .Volume.runNamespace }}
     kind: CStorVolumeReplica
     action: put
     id: cstorvolumecreatereplica
@@ -215,7 +217,7 @@ data:
     kind: CStorVolumeReplica
     apiVersion: openebs.io/v1alpha1
     metadata:
-      name: cstorvolumereplica-{{ .ListItems.currentRepeatResource }}
+      name: cvr-{{ .Volume.owner }}-{{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
       labels:
         cstorpool.openebs.io/name: {{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
         cstorpool.openebs.io/uid: {{ .ListItems.currentRepeatResource }}
@@ -231,6 +233,29 @@ data:
   post: |
     {{- jsonpath .JsonResult "{metadata.name}" | trim | saveAs "cstorvolumecreatereplica.objectName" .TaskResult | noop -}}
     {{- jsonpath .JsonResult "{metadata.spec.capacity}" | trim | saveAs "cstorvolumecreatereplica.capacity" .TaskResult | noop -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: volume-create-output-0.7.0
+  namespace: default
+data:
+  meta: |
+    action: output
+    id: cstorvolumeoutput
+    kind: CASVolume
+    apiVersion: v1alpha1
+  task: |
+    kind: CASVolume
+    apiVersion: v1alpha1
+    metadata:
+      name: {{ .Volume.owner }}
+      annotations:
+        vsm.openebs.io/iqn: iqn.2016-09.com.openebs.cstor:{{ .Volume.owner }}
+        vsm.openebs.io/replica-count: {{ .TaskResult.cstorvolumecreatereplica.objectName | default "" | splitList " " | len }}
+        vsm.openebs.io/volume-size: {{ .Volume.capacity }}
+        vsm.openebs.io/targetportals: {{ .TaskResult.cvolcreateputsvc.clusterIP }}:3260
+    capacity: {{ .TaskResult.cstorvolumecreatereplica.capacity }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -287,27 +312,19 @@ metadata:
   namespace: default
 data:
   meta: |
+    {{- $nss := .Volume.runNamespace | default "" | splitList ", " -}}
+    repeatWith:
+     kind: namespace
+     resources:
+     {{- range $k, $ns := $nss }}
+     - {{ $ns }}
+     {{- end }}
     id: listlistrep
     apiVersion: openebs.io/v1alpha1
     kind: CStorVolumeReplica
     action: list
   post: |
-    {{- $replicaPairs := jsonpath .JsonResult `{range .items[*]}pkey=default/{@.metadata.labels.openebs\.io/pv} replicaName={@.metadata.name} capacity={@.spec.capacity};{end}` | trim | default "" | splitList ";" -}}
-    {{- $replicaPairs | asKeyMap "volumeList" .ListItems | noop -}}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: volume-list-list-replicas-0.7.0
-  namespace: default
-data:
-  meta: |
-    id: listlistrep
-    apiVersion: openebs.io/v1alpha1
-    kind: CStorVolumeReplica
-    action: list
-  post: |
-    {{- $replicaPairs := jsonpath .JsonResult `{range .items[*]}pkey=default/{@.metadata.labels.openebs\.io/pv} replicaName={@.metadata.name} capacity={@.spec.capacity};{end}` | trim | default "" | splitList ";" -}}
+    {{- $replicaPairs := jsonpath .JsonResult `{range .items[*]}pkey={@.metadata.namespace}/{@.metadata.labels.openebs\.io/pv} replicaName={@.metadata.name} capacity={@.spec.capacity};{end}` | trim | default "" | splitList ";" -}}
     {{- $replicaPairs | asKeyMap "volumeList" .ListItems | noop -}}
 ---
 apiVersion: v1
@@ -341,14 +358,13 @@ data:
             vsm.openebs.io/controller-ips: {{ $controllerIP }}
             vsm.openebs.io/cluster-ips: {{ $clusterIP }}
             vsm.openebs.io/iqn: iqn.2016-09.com.openebs.cstor:{{ $name }}
-            vsm.openebs.io/replica-count: {{ $replicaName | default "" | splitList ", " | len }}
             vsm.openebs.io/volume-size: {{ $capacity }}
             vsm.openebs.io/controller-status: {{ $controllerStatus | replace "true" "running" | replace "false" "notready" }}
             vsm.openebs.io/targetportals: {{ $clusterIP }}:3260
+            vsm.openebs.io/replica-count: {{ $replicaName | default "" | splitList ", " | len }}
         spec:
           capacity: {{ $capacity }}
     {{- end -}}
-
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -365,7 +381,7 @@ data:
     options: |-
       labelSelector: openebs.io/controller-service=cstor-controller-svc,openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "readlistsvc.items" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "readlistsvc.items" .TaskResult | noop -}}
     {{- .TaskResult.readlistsvc.items | notFoundErr "controller service not found" | saveIf "readlistsvc.notFoundErr" .TaskResult | noop -}}
     {{- jsonpath .JsonResult "{.items[*].spec.clusterIP}" | trim | saveAs "readlistsvc.clusterIP" .TaskResult | noop -}}
 
@@ -430,41 +446,12 @@ data:
         vsm.openebs.io/controller-ips: {{ .TaskResult.readlistctrl.podIP | default "" | splitList " " | first }}
         vsm.openebs.io/cluster-ips: {{ .TaskResult.readlistsvc.clusterIP }}
         vsm.openebs.io/iqn: iqn.2016-09.com.openebs.cstor:{{ .Volume.owner }}
-        vsm.openebs.io/replica-count: {{ .TaskResult.readlistrep.items | default "" | splitList " " | len }}
+        vsm.openebs.io/replica-count: {{ .TaskResult.readlistrep.capacity | default "" | splitList " " | len }}
         vsm.openebs.io/volume-size: {{ $capacity }}
         vsm.openebs.io/controller-status: {{ .TaskResult.readlistctrl.status | default "" | splitList " " | join "," | replace "true" "running" | replace "false" "notready" }}
         vsm.openebs.io/targetportals: {{ .TaskResult.readlistsvc.clusterIP }}:3260
     spec:
-      capacity: {{ .TaskResult.readlistcapacity }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: volume-read-output-0.7.0
-  namespace: default
-data:
-  meta: |
-    id : readoutput
-    action: output
-    kind: CASVolume
-    apiVersion: v1alpha1
-  task: |
-    {{- $capacity := .TaskResult.readlistrep.capacity | default "" | splitList " " | first -}}
-    kind: CASVolume
-    apiVersion: v1alpha1
-    metadata:
-      name: {{ .Volume.owner }}
-      annotations:
-        vsm.openebs.io/controller-ips: {{ .TaskResult.readlistctrl.podIP | default "" | splitList " " | first }}
-        vsm.openebs.io/cluster-ips: {{ .TaskResult.readlistsvc.clusterIP }}
-        vsm.openebs.io/iqn: iqn.2016-09.com.openebs.cstor:{{ .Volume.owner }}
-        vsm.openebs.io/replica-count: {{ .TaskResult.readlistrep.items | default "" | splitList " " | len }}
-        vsm.openebs.io/volume-size: {{ $capacity }}
-        vsm.openebs.io/controller-status: {{ .TaskResult.readlistctrl.status | default "" | splitList " " | join "," | replace "true" "running" | replace "false" "notready" }}
-        vsm.openebs.io/targetportals: {{ .TaskResult.readlistsvc.clusterIP }}:3260
-    spec:
-      capacity: {{ .TaskResult.readlistcapacity }}
----
+      capacity: {{ $capacity }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -577,6 +564,7 @@ metadata:
   namespace: default
 data:
   meta: |
+    runNamespace: {{ .Volume.runNamespace }}
     id: deletedeletecvr
     action: delete
     kind: CStorVolumeReplica
@@ -590,6 +578,7 @@ metadata:
   namespace: default
 data:
   meta: |
+    runNamespace: {{ .Volume.runNamespace }}
     id: deletedeletecsv
     action: delete
     apiVersion: openebs.io/v1alpha1
