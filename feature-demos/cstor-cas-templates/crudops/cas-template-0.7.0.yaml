@@ -11,7 +11,7 @@ spec:
   - name: spc
     value: "123"
   - name: replicas
-    value: "2"
+    value: "5"
   taskNamespace: default
   run:
     tasks:

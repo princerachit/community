@@ -13,7 +13,7 @@ data:
     options: |-
       labelSelector: spc.openebs.io/uid={{ .Config.spc.value }}
   post: |
-    {{- $poolsList := jsonpath .JsonResult `{range .items[*]}pkey=pools {@.metadata.uid}={@.metadata.name};{end}` | trim | default "" | splitList ";" -}}
+    {{- $poolsList := jsonpath .JsonResult `{range .items[?(@.status.phase=="online")]}pkey=pools {@.metadata.uid}={@.metadata.name};{end}` | trim | default "" | splitList ";" -}}
     {{- $poolsList | asKeyMap "cvolPoolList" .ListItems | noop -}}
 ---
 apiVersion: v1
@@ -29,8 +29,8 @@ data:
     id: cvolcreateputsvc
     runNamespace: {{ .Volume.runNamespace }}
   post: |
-    {{- jsonpath .JsonResult "{.metadata.name}" | trim | saveAs "cvolcreateputsvc.objectName" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{.spec.clusterIP}" | trim | saveAs "cvolcreateputsvc.clusterIP" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.metadata.name}` | trim | saveAs "cvolcreateputsvc.objectName" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.spec.clusterIP}` | trim | saveAs "cvolcreateputsvc.clusterIP" .TaskResult | noop -}}
   task: |
     apiVersion: v1
     kind: Service
@@ -68,8 +68,8 @@ data:
     runNamespace: {{ .Volume.runNamespace }}
     action: put
   post: |
-    {{- jsonpath .JsonResult "{.metadata.uid}" | trim | saveAs "cvolcreateputvolume.cstorid" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{.metadata.name}" | trim | saveAs "cvolcreateputvolume.objectName" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.metadata.uid}` | trim | saveAs "cvolcreateputvolume.cstorid" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.metadata.name}` | trim | saveAs "cvolcreateputvolume.objectName" .TaskResult | noop -}}
   task: |
     apiVersion: openebs.io/v1alpha1
     kind: CStorVolume
@@ -97,7 +97,7 @@ data:
     action: put
     id: cvolcreateputctrl
   post: |
-    {{- jsonpath .JsonResult "{.metadata.name}" | trim | saveAs "cvolcreateputctrl.objectName" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.metadata.name}` | trim | saveAs "cvolcreateputctrl.objectName" .TaskResult | noop -}}
   task: |
     {{- $isMonitor := .Config.VolumeMonitor.enabled | default "true" | lower -}}
     {{- $monitorVal := .Config.VolumeMonitor.value | default "openebs/m-exporter:0.5.0" -}}
@@ -208,10 +208,18 @@ data:
     kind: CStorVolumeReplica
     action: put
     id: cstorvolumecreatereplica
+    {{- $poolUids := keys .ListItems.cvolPoolList.pools }}
+    {{- $replicaCount := int64 .Config.replicas.value }}
+    {{- $availablePools := len $poolUids }}
+    {{- if gt $replicaCount $availablePools }}
+    {{- $replicaCount := 2 }}
+    {{- end }}
     repeatWith:
       resources:
-      {{- range $k, $v := .ListItems.cvolPoolList.pools }}
-      - {{ $k }}
+      {{- range $k, $v := $poolUids }}
+      {{- if lt $k $replicaCount }}
+      - {{ $v }}
+      {{- end }}
       {{- end }}
   task: |
     kind: CStorVolumeReplica
@@ -229,10 +237,10 @@ data:
       capacity: {{ .Volume.capacity }}
       cStorControllerIP: {{ .TaskResult.cvolcreateputsvc.clusterIP }}
     status:
-      phase: init
+      phase: ""
   post: |
-    {{- jsonpath .JsonResult "{metadata.name}" | trim | saveAs "cstorvolumecreatereplica.objectName" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{metadata.spec.capacity}" | trim | saveAs "cstorvolumecreatereplica.capacity" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{metadata.name}` | trim | saveAs "cstorvolumecreatereplica.objectName" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{metadata.spec.capacity}` | trim | saveAs "cstorvolumecreatereplica.capacity" .TaskResult | noop -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -383,7 +391,7 @@ data:
   post: |
     {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "readlistsvc.items" .TaskResult | noop -}}
     {{- .TaskResult.readlistsvc.items | notFoundErr "controller service not found" | saveIf "readlistsvc.notFoundErr" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{.items[*].spec.clusterIP}" | trim | saveAs "readlistsvc.clusterIP" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].spec.clusterIP}` | trim | saveAs "readlistsvc.clusterIP" .TaskResult | noop -}}
 
 ---
 apiVersion: v1
@@ -401,7 +409,7 @@ data:
     options: |-
       labelSelector: openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "readlistrep.items" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "readlistrep.items" .TaskResult | noop -}}
     {{- .TaskResult.readlistrep.items | notFoundErr "replicas not found" | saveIf "readlistrep.notFoundErr" .TaskResult | noop -}}
     {{- jsonpath .JsonResult `{.items[*].spec.capacity}` | trim | saveAs "readlistrep.capacity" .TaskResult | noop -}}
 ---
@@ -420,10 +428,10 @@ data:
     options: |-
       labelSelector: openebs.io/controller=cstor-controller,openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "readlistctrl.items" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "readlistctrl.items" .TaskResult | noop -}}
     {{- .TaskResult.readlistctrl.items | notFoundErr "controller pod not found" | saveIf "readlistctrl.notFoundErr" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{.items[*].status.podIP}" | trim | saveAs "readlistctrl.podIP" .TaskResult | noop -}}
-    {{- jsonpath .JsonResult "{.items[*].status.containerStatuses[*].ready}" | trim | saveAs "readlistctrl.status" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].status.podIP}` | trim | saveAs "readlistctrl.podIP" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].status.containerStatuses[*].ready}` | trim | saveAs "readlistctrl.status" .TaskResult | noop -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -468,7 +476,7 @@ data:
     options: |-
       labelSelector: openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "deletelistcsv.names" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "deletelistcsv.names" .TaskResult | noop -}}
     {{- .TaskResult.deletelistcsv.names | notFoundErr "cstor volume not found" | saveIf "deletelistcsv.notFoundErr" .TaskResult | noop -}}
     {{- .TaskResult.deletelistcsv.names | default "" | splitList " " | isLen 1 | not | verifyErr "total no. cstor volume is not 1" | saveIf "deletelistcsv.verifyErr" .TaskResult | noop -}}
 ---
@@ -487,7 +495,7 @@ data:
     options: |-
       labelSelector: openebs.io/controller-service=cstor-controller-svc,openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "deletelistsvc.names" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "deletelistsvc.names" .TaskResult | noop -}}
     {{- .TaskResult.deletelistsvc.names | notFoundErr "controller service not found" | saveIf "deletelistsvc.notFoundErr" .TaskResult | noop -}}
     {{- .TaskResult.deletelistsvc.names | default "" | splitList " " | isLen 1 | not | verifyErr "total no. of controller services is not 1" | saveIf "deletelistsvc.verifyErr" .TaskResult | noop -}}
 ---
@@ -506,7 +514,7 @@ data:
     options: |-
       labelSelector: openebs.io/controller=cstor-controller,openebs.io/pv={{ .Volume.owner }}
   post: |
-    {{- jsonpath .JsonResult "{.items[*].metadata.name}" | trim | saveAs "deletelistctrl.names" .TaskResult | noop -}}
+    {{- jsonpath .JsonResult `{.items[*].metadata.name}` | trim | saveAs "deletelistctrl.names" .TaskResult | noop -}}
     {{- .TaskResult.deletelistctrl.names | notFoundErr "controller deployment not found" | saveIf "deletelistctrl.notFoundErr" .TaskResult | noop -}}
     {{- .TaskResult.deletelistctrl.names | default "" | splitList " " | isLen 1 | not | verifyErr "total no. of controller deployments is not 1" | saveIf "deletelistctrl.verifyErr" .TaskResult | noop -}}
 ---
