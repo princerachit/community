@@ -4,10 +4,12 @@ metadata:
   name: cast-standard-0.7.0
 spec:
   defaultConfig:
-  - name: ControllerMgmtImage
+  - name: VolumeControllerImage
     value: moteesh/cstor-volume-mgmt:ci
-  - name: ControllerIstgtImage
+  - name: VolumeTargetImage
     value: moteesh/cstor-istgt:ci
+  - name: VolumeExporterImage
+    value: openebs/m-exporter:0.5.0
   - name: spc
     value: "123"
   - name: ReplicaCount
