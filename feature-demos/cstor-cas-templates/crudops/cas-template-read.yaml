@@ -6,7 +6,7 @@ spec:
   taskNamespace: default
   run:
     tasks:
-    - volume-read-list-controller-service-0.7.0
-    - volume-read-list-replica-0.7.0
-    - volume-read-list-controller-pods-0.7.0
+    - cstor-volume-read-list-controller-service-0.7.0
+    - cstor-volume-read-list-replica-0.7.0
+    - cstor-volume-read-list-controller-pods-0.7.0
   output: volume-read-output-0.7.0

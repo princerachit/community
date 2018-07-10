@@ -375,7 +375,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-read-list-controller-service-0.7.0
+  name: cstor-volume-read-list-controller-service-0.7.0
   namespace: default
 data:
   meta: |
@@ -395,7 +395,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-read-list-replica-0.7.0
+  name: cstor-volume-read-list-replica-0.7.0
   namespace: default
 data:
   meta: |
@@ -414,7 +414,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-read-list-controller-pods-0.7.0
+  name: cstor-volume-read-list-controller-pods-0.7.0
   namespace: default
 data:
   meta: |
