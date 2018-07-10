@@ -1,0 +1,10 @@
+apiVersion: openebs.io/v1alpha1
+kind: CStorPool
+metadata:
+  labels:
+    spc.openebs.io/name: "123"
+  name: my-cstor-pool
+spec:
+  someval: anotherval
+status:
+  phase: offline
