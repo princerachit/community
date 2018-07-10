@@ -11,7 +11,7 @@ data:
     kind: CStorPool
     action: list
     options: |-
-      labelSelector: spc.openebs.io/uid={{ .Config.spc.value }}
+      labelSelector: spc.openebs.io/name={{ .Config.spc.value }}
   post: |
     {{- $replicaCount := int64 .Config.ReplicaCount.value }}
     {{- $poolsList := jsonpath .JsonResult `{range .items[?(@.status.phase=="online")]}pkey=pools {@.metadata.uid}={@.metadata.name};{end}` | trim | default "" | splitList ";" -}}
@@ -38,11 +38,8 @@ data:
     kind: Service
     metadata:
       labels:
-        openebs/controller-service: cstor-controller-service
         openebs.io/controller-service: cstor-controller-svc
         openebs.io/storage-engine-type: cstor
-        openebs/volume-provisioner: cstor
-        vsm: {{ .Volume.owner }}
         openebs.io/pv: {{ .Volume.owner }}
       name: {{ .Volume.owner }}
     spec:
@@ -60,7 +57,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cstor-volume-create-put-cr-0.7.0
+  name: cstor-volume-create-put-csv-0.7.0
   namespace: default
 data:
   meta: |
@@ -82,9 +79,8 @@ data:
     spec:
       cStorControllerIP: {{ .TaskResult.cvolcreateputsvc.clusterIP }}
       volumeName: {{ .Volume.owner }}
-      volumeId: ""
       capacity: {{ .Volume.capacity }}
-      status: init
+      status: ""
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -94,7 +90,7 @@ metadata:
 data:
   meta: |
     runNamespace: {{ .Volume.runNamespace }}
-    apiVersion: extensions/v1beta1
+    apiVersion: extensions/v1
     kind: Deployment
     action: put
     id: cvolcreateputctrl
@@ -102,15 +98,13 @@ data:
     {{- jsonpath .JsonResult `{.metadata.name}` | trim | saveAs "cvolcreateputctrl.objectName" .TaskResult | noop -}}
   task: |
     {{- $isMonitor := .Config.VolumeMonitor.enabled | default "true" | lower -}}
-    apiVersion: extensions/v1beta1
+    apiVersion: extensions/v1
     Kind: Deployment
     metadata:
       name: {{ .Volume.owner }}
       labels:
         app: cstor-volume-manager
         openebs.io/storage-engine-type: cstor
-        openebs/volume-provisioner: cstor
-        openebs/controller: cstor-controller
         openebs.io/controller: cstor-controller
         vsm: {{ .Volume.owner }}
         openebs.io/pv: {{ .Volume.owner }}
@@ -127,9 +121,7 @@ data:
           monitoring: volume_exporter_prometheus
           {{- end}}
           openebs.io/controller: cstor-controller
-          openebs/controller: cstor-controller
           openebs.io/pv: {{ .Volume.owner }}
-          vsm: {{ .Volume.owner }}
           app: cstor-volume-manager
       template:
         metadata:
@@ -138,9 +130,7 @@ data:
             monitoring: volume_exporter_prometheus
             {{- end}}
             openebs.io/controller: cstor-controller
-            openebs/controller: cstor-controller
             openebs.io/pv: {{ .Volume.owner }}
-            vsm: {{ .Volume.owner }}
             app: cstor-volume-manager
         spec:
           containers:
@@ -175,7 +165,7 @@ data:
             ports:
             - containerPort: 80
             env:
-            - name: cstorid
+            - name: CSTOR_ID
               value: {{ .TaskResult.cvolcreateputvolume.cstorid }}
             securityContext:
               privileged: true
@@ -224,7 +214,7 @@ data:
         cstorpool.openebs.io/name: {{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
         cstorpool.openebs.io/uid: {{ .ListItems.currentRepeatResource }}
         cstorvolume.openebs.io/uid: {{ .TaskResult.cvolcreateputvolume.cstorid }}
-        cstorvolumereplica.openebs.io/pvc-name: {{ .Volume.owner }}
+        cstorvolumereplica.openebs.io/pvc-name: {{ .Volume.pvc }}
         openebs.io/pv: {{ .Volume.owner }}
         #  finalizers: ["cstorvolumereplica.openebs.io/finalizer"]
     spec:
@@ -501,7 +491,7 @@ data:
   meta: |
     id: deletelistctrl
     runNamespace: {{ .Volume.runNamespace }}
-    apiVersion: extensions/v1beta1
+    apiVersion: extensions/v1
     kind: Deployment
     action: list
     options: |-
@@ -553,7 +543,7 @@ data:
   meta: |
     id: deletedeletectrl
     runNamespace: {{ .Volume.runNamespace }}
-    apiVersion: extensions/v1beta1
+    apiVersion: extensions/v1
     kind: Deployment
     action: delete
     objectName: {{ .TaskResult.deletelistctrl.names }}
