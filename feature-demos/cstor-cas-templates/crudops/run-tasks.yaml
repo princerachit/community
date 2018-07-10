@@ -44,7 +44,7 @@ data:
         openebs/volume-provisioner: cstor
         vsm: {{ .Volume.owner }}
         openebs.io/pv: {{ .Volume.owner }}
-      name: {{ .Volume.owner }}-ctrl-svc
+      name: {{ .Volume.owner }}
     spec:
       ports:
       - name: cstor-iscsi
@@ -106,7 +106,7 @@ data:
     apiVersion: extensions/v1beta1
     Kind: Deployment
     metadata:
-      name: {{ .Volume.owner }}-ctrl
+      name: {{ .Volume.owner }}
       labels:
         app: cstor-volume-manager
         openebs.io/storage-engine-type: cstor
@@ -223,7 +223,7 @@ data:
     kind: CStorVolumeReplica
     apiVersion: openebs.io/v1alpha1
     metadata:
-      name: cvr-{{ .Volume.owner }}-{{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
+      name: {{ .Volume.owner }}-{{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
       labels:
         cstorpool.openebs.io/name: {{ pluck .ListItems.currentRepeatResource .ListItems.cvolPoolList.pools | first }}
         cstorpool.openebs.io/uid: {{ .ListItems.currentRepeatResource }}
