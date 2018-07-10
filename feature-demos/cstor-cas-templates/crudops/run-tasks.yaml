@@ -462,7 +462,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-list-cstorvolume-0.7.0
+  name: cstor-volume-delete-list-cstorvolume-0.7.0
   namespace: default
 data:
   meta: |
@@ -481,7 +481,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-list-controller-service-0.7.0
+  name: cstor-volume-delete-list-controller-service-0.7.0
   namespace: default
 data:
   meta: |
@@ -500,7 +500,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-list-controller-deployment-0.7.0
+  name: cstor-volume-delete-list-controller-deployment-0.7.0
   namespace: default
 data:
   meta: |
@@ -519,7 +519,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-list-cstorvolumereplica-0.7.0
+  name: cstor-volume-delete-list-cstorvolumereplica-0.7.0
   namespace: default
 data:
   meta: |
@@ -538,7 +538,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-delete-controller-service-0.7.0
+  name: cstor-volume-delete-delete-controller-service-0.7.0
   namespace: default
 data:
   meta: |
@@ -552,7 +552,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-delete-controller-deployment-0.7.0
+  name: cstor-volume-delete-delete-controller-deployment-0.7.0
   namespace: default
 data:
   meta: |
@@ -566,7 +566,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-delete-cstorvolumereplica-0.7.0
+  name: cstor-volume-delete-delete-cstorvolumereplica-0.7.0
   namespace: default
 data:
   meta: |
@@ -580,7 +580,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-delete-delete-cstorvolume-0.7.0
+  name: cstor-volume-delete-delete-cstorvolume-0.7.0
   namespace: default
 data:
   meta: |
