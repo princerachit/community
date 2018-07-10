@@ -13,7 +13,9 @@ data:
     options: |-
       labelSelector: spc.openebs.io/uid={{ .Config.spc.value }}
   post: |
+    {{- $replicaCount := int64 .Config.ReplicaCount.value }}
     {{- $poolsList := jsonpath .JsonResult `{range .items[?(@.status.phase=="online")]}pkey=pools {@.metadata.uid}={@.metadata.name};{end}` | trim | default "" | splitList ";" -}}
+    {{- len $poolsList | gt $replicaCount | verifyErr "not enough pools available to create replicas" | saveAs "cvolcreatelistpool.verifyErr" .TaskResult | noop -}}
     {{- $poolsList | asKeyMap "cvolPoolList" .ListItems | noop -}}
 ---
 apiVersion: v1
@@ -209,11 +211,7 @@ data:
     action: put
     id: cstorvolumecreatereplica
     {{- $poolUids := keys .ListItems.cvolPoolList.pools }}
-    {{- $replicaCount := int64 .Config.replicas.value }}
-    {{- $availablePools := len $poolUids }}
-    {{- if gt $replicaCount $availablePools }}
-    {{- $replicaCount := 2 }}
-    {{- end }}
+    {{- $replicaCount := int64 .Config.ReplicaCount.value }}
     repeatWith:
       resources:
       {{- range $k, $v := $poolUids }}
