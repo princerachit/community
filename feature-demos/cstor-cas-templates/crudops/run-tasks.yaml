@@ -266,7 +266,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-list-list-controller-service-0.7.0
+  name: cstor-volume-list-list-controller-service-0.7.0
   namespace: default
 data:
   meta: |
@@ -290,7 +290,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-list-list-controller-pods-0.7.0
+  name: cstor-volume-list-list-controller-pods-0.7.0
   namespace: default
 data:
   meta: |
@@ -314,7 +314,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: volume-list-list-replicas-0.7.0
+  name: cstor-volume-list-list-replicas-0.7.0
   namespace: default
 data:
   meta: |
